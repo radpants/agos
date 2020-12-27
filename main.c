@@ -1,13 +1,23 @@
-#include <raylib.h>
+#include "pch.h"
+
+#include "ui.h"
+#include "world.h"
+
+void HandleGenerate() {
+    WorldGenerate();
+}
 
 int main() {
     InitWindow(1280, 720, "Agos");
     SetTargetFPS(60);
 
+    UISetClickGenerateCallback(&HandleGenerate);
+
     while(!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawText("Agos!", 32, 32, 16, BLACK);
+        WorldDraw();
+        UIDoFrame();
         EndDrawing();
     }
 

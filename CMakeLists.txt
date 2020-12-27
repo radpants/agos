@@ -10,5 +10,8 @@ add_subdirectory(vendor/raylib)
 
 set(CMAKE_C_FLAGS -Wall)
 
-add_executable(agos main.c)
+include_directories(vendor/raygui/src/)
+
+add_executable(agos main.c ui.c ui.h world.c world.h hex.c hex.h pch.h)
+target_precompile_headers(agos PRIVATE pch.h)
 target_link_libraries(agos PRIVATE raylib)
