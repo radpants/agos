@@ -11,7 +11,7 @@
 static UI _ui = {0};
 
 
-void UIDoFrame() {
+void UIDraw() {
     if(GuiButton((struct Rectangle){ 8, 8, 96, 32 }, "Generate")) {
         if(_ui.ClickGenerateCallback) {
             _ui.ClickGenerateCallback();

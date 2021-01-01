@@ -9,10 +9,6 @@
 
 static World world = {0};
 
-// DEBUG
-static Texture2D debugTexture;
-// END DEBUG
-
 void WorldGenerate() {
     static const int worldWidth = 128;
     static const float fq1 = 8.0f;
@@ -22,6 +18,12 @@ void WorldGenerate() {
     Vector4* hexData = (Vector4*)calloc(worldWidth * worldWidth, sizeof(Vector4));
 
     world.dataImage = GenImageColor(worldWidth, worldWidth, BLACK);
+
+    Image cellImages[WORLD_CELL_DIMENSIONS*WORLD_CELL_DIMENSIONS];
+    const int cellDimensions = worldWidth / WORLD_CELL_DIMENSIONS;
+    for(int i = 0; i < WORLD_CELL_DIMENSIONS * WORLD_CELL_DIMENSIONS; ++i) {
+        cellImages[i] = GenImageColor(cellDimensions, cellDimensions, BLACK);
+    }
 
     for(int y = 0; y < worldWidth; ++y) {
         for(int x = 0; x < worldWidth; ++x) {
@@ -34,17 +36,44 @@ void WorldGenerate() {
             float noise2 = stb_perlin_noise3(u*fq2, 8.f, v*fq2, 0, 0, 0) * 0.5f + 0.5f;
             unsigned char r = (unsigned char)(noise1 * 255.f);
             unsigned char g = (unsigned char)(noise2 * 255.f);
-            ImageDrawPixel(&world.dataImage, x, y, (Color){ r, g, 0, 255 });
+            Color color = { r, g, r, 255 };
+            ImageDrawPixel(&world.dataImage, x, y, color);
+            const int cellX = x / cellDimensions;
+            const int cellY = y / cellDimensions;
+            const int ci = cellY * cellDimensions + cellX;
+            const int cellLocalX = x % cellDimensions;
+            const int cellLocalY = y % cellDimensions;
+            ImageDrawPixel(&cellImages[ci], cellLocalX, cellLocalY, color);
+            world.cells[ci].offset = (Vector3) {
+                (float)(cellX * cellDimensions),
+                0.f,
+                (float)(cellY * cellDimensions)
+            };
         }
+    }
+
+    const Vector3 cellSize = {
+            (float)cellDimensions,
+            (float)cellDimensions / 2.f,
+            (float)cellDimensions
+    };
+
+    for(int i = 0; i < WORLD_CELL_DIMENSIONS * WORLD_CELL_DIMENSIONS; ++i) {
+        Mesh mesh = GenMeshHeightmap(cellImages[i], cellSize);
+        world.cells[i].model = LoadModelFromMesh(mesh);
+        world.cells[i].texture = LoadTextureFromImage(cellImages[i]);
+        world.cells[i].model.materials[0].maps[MAP_ALBEDO].texture = world.cells[i].texture;
+        // TODO: Is this when this should be unloaded???
+//        UnloadMesh(mesh);
+        UnloadImage(cellImages[i]);
     }
 
     free(hexes);
     free(hexData);
-
-    debugTexture = LoadTextureFromImage(world.dataImage);
 }
 
 void WorldDraw() {
-    SetTextureFilter(debugTexture, FILTER_POINT);
-    DrawTextureEx(debugTexture, (Vector2){ 128.f, 128.f }, 0.f, 4.f, WHITE);
+    for(int i = 0; i < WORLD_CELL_DIMENSIONS * WORLD_CELL_DIMENSIONS; ++i) {
+        DrawModel(world.cells[i].model, world.cells[i].offset, 1.f, YELLOW);
+    }
 }

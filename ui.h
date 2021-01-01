@@ -9,7 +9,7 @@ typedef struct {
     void (*ClickGenerateCallback)(void);
 } UI;
 
-void UIDoFrame();
+void UIDraw();
 void UISetClickGenerateCallback(void (*f)());
 
 #endif //AGOS_UI_H

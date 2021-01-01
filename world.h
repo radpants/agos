@@ -10,7 +10,9 @@
 #define WORLD_CELL_DIMENSIONS 4
 
 typedef struct {
-    Vector2 offset;
+    Vector3 offset;
+    Model model;
+    Texture2D texture;
 } WorldCell;
 
 typedef struct {
