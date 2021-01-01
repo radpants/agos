@@ -40,7 +40,7 @@ void WorldGenerate() {
             ImageDrawPixel(&world.dataImage, x, y, color);
             const int cellX = x / cellDimensions;
             const int cellY = y / cellDimensions;
-            const int ci = cellY * cellDimensions + cellX;
+            const int ci = cellY * WORLD_CELL_DIMENSIONS + cellX;
             const int cellLocalX = x % cellDimensions;
             const int cellLocalY = y % cellDimensions;
             ImageDrawPixel(&cellImages[ci], cellLocalX, cellLocalY, color);
