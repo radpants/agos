@@ -6,6 +6,7 @@
 #define AGOS_WORLD_H
 
 #include "pch.h"
+#include "hex.h"
 
 #define WORLD_CELL_DIMENSIONS 4
 
@@ -23,5 +24,9 @@ typedef struct {
 
 void WorldGenerate();
 void WorldDraw();
+
+// for mouse picking
+Hex* WorldGetHexNearestPosition(Vector3 position);
+
 
 #endif //AGOS_WORLD_H

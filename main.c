@@ -4,39 +4,76 @@
 #include "world.h"
 
 void HandleGenerate() {
-    WorldGenerate();
+	WorldGenerate();
 }
 
 int main() {
-    InitWindow(1280, 720, "Agos");
-    SetTargetFPS(60);
+	InitWindow(1920, 1080, "Agos");
+	SetTargetFPS(60);
 
-    UISetClickGenerateCallback(&HandleGenerate);
+	UISetClickGenerateCallback(&HandleGenerate);
 
-    Camera3D cam = (Camera3D){
-        .fovy = 60.f,
-        .position = { 0.f, 32.f, -32.f },
-        .target = { 0.f, 0.f, 0.f },
-        .up = { 0.f, 1.f, 0.f },
-        .type = CAMERA_PERSPECTIVE
-    };
+	Vector2 pMouse = {0.f, 0.f};
+	
+	const float MinCamDist = 25.f;
+	const float MaxCamDist = 150.f;
+	float camDist = MinCamDist;
+	float camDistGoal = camDist;
+	const Vector3 ZoomedOutVector = {0.f, 1.f, 0.f};
+	const Vector3 ZoomedInVector = Vector3Normalize((Vector3){0.f, 0.7f, 1.f});
 
-    while(!WindowShouldClose()) {
-        UpdateCamera(&cam);
+	Camera3D cam = (Camera3D){
+		.fovy = 60.f,
+		.position = { 0.f, 32.f, -16.f },
+		.target = { 0.f, 0.f, 0.f },
+		.up = { 0.f, 1.f, 0.f },
+		.type = CAMERA_PERSPECTIVE
+	};
 
-        BeginDrawing();
-        ClearBackground(RAYWHITE);
+	while(!WindowShouldClose()) {
 
-        BeginMode3D(cam);
-        WorldDraw();
-        DrawCube((Vector3){0.f, 0.f, 0.f}, 1.f, 1.f, 1.f, BLUE);
-        EndMode3D();
+		if( IsMouseButtonDown(MOUSE_LEFT_BUTTON) ) {
+			Vector2 mouse = GetMousePosition();
+			Ray ray = GetMouseRay(GetMousePosition(), cam);
+			RayHitInfo hit = GetCollisionRayGround(ray, 0.f);
 
-        UIDraw();
+			if( !IsMouseButtonPressed(MOUSE_LEFT_BUTTON) ) {
+				Ray pRay = GetMouseRay(pMouse, cam);
+				RayHitInfo pHit = GetCollisionRayGround(pRay, 0.f);
+				Vector3 move = Vector3Subtract(pHit.position, hit.position);
+				cam.target = Vector3Add(cam.target, move);
+			}
 
-        EndDrawing();
-    }
+			pMouse = mouse;
+		}
+		
+		float mouseWheel = GetMouseWheelMove() * 4.f;
+		camDistGoal -= mouseWheel;
+		camDistGoal = (camDistGoal > MaxCamDist) ? MaxCamDist : ((camDistGoal < MinCamDist) ? MinCamDist : camDistGoal);
+		camDist = (camDist + camDistGoal) / 2.f;
+		float zoomFactor = (camDist - MinCamDist) / (MaxCamDist - MinCamDist);
+		zoomFactor = (zoomFactor > 1.f) ? 1.f : ((zoomFactor < 0.f) ? 0.f : zoomFactor);
+		Vector3 camVector = Vector3Lerp(ZoomedInVector, ZoomedOutVector, zoomFactor);
+		cam.position = Vector3Add(cam.target, Vector3Scale(camVector, camDist));
+		
+		UpdateCamera(&cam);
 
-    CloseWindow();
-    return 0;
+		BeginDrawing();
+		ClearBackground(RAYWHITE);
+
+		BeginMode3D(cam);
+		WorldDraw();
+		EndMode3D();
+
+		UIDraw();
+		
+		char buf[16];
+		sprintf(buf, "%.2f", camDist);
+		DrawText(buf, 8, 128, 16, BLACK);
+
+		EndDrawing();
+	}
+
+	CloseWindow();
+	return 0;
 }

@@ -4,7 +4,6 @@
 
 #include "world.h"
 
-#include "hex.h"
 #include "vendor/raylib/src/external/stb_perlin.h"
 
 static World world = {0};
@@ -14,13 +13,14 @@ void WorldGenerate() {
     static const float fq1 = 8.0f;
     static const float fq2 = 3.0f;
 
+    // TODO: free this (and other) memory in case WorldGenerate() has been called multiple times
     Hex* hexes = (Hex*)calloc(worldWidth * worldWidth, sizeof(Hex));
     Vector4* hexData = (Vector4*)calloc(worldWidth * worldWidth, sizeof(Vector4));
 
     world.dataImage = GenImageColor(worldWidth, worldWidth, BLACK);
 
     Image cellImages[WORLD_CELL_DIMENSIONS*WORLD_CELL_DIMENSIONS];
-    const int cellDimensions = worldWidth / WORLD_CELL_DIMENSIONS;
+    const int cellDimensions = 32;
     for(int i = 0; i < WORLD_CELL_DIMENSIONS * WORLD_CELL_DIMENSIONS; ++i) {
         cellImages[i] = GenImageColor(cellDimensions, cellDimensions, BLACK);
     }
@@ -34,13 +34,14 @@ void WorldGenerate() {
             float v = (float)y / (float)worldWidth;
             float noise1 = stb_perlin_ridge_noise3(u*fq1, 0.f, v*fq1, 2.f, 0.5f, 1.f, 6);
             float noise2 = stb_perlin_noise3(u*fq2, 8.f, v*fq2, 0, 0, 0) * 0.5f + 0.5f;
-            unsigned char r = (unsigned char)(noise1 * 255.f);
-            unsigned char g = (unsigned char)(noise2 * 255.f);
+            uint8_t r = (uint8_t)(noise1 * 255.f);
+            uint8_t g = (uint8_t)(noise2 * 255.f);
+            hexes[i].height = r;
             Color color = { r, g, r, 255 };
             ImageDrawPixel(&world.dataImage, x, y, color);
             const int cellX = x / cellDimensions;
             const int cellY = y / cellDimensions;
-            const int ci = cellY * cellDimensions + cellX;
+            const int ci = cellY * WORLD_CELL_DIMENSIONS + cellX;
             const int cellLocalX = x % cellDimensions;
             const int cellLocalY = y % cellDimensions;
             ImageDrawPixel(&cellImages[ci], cellLocalX, cellLocalY, color);
@@ -54,7 +55,7 @@ void WorldGenerate() {
 
     const Vector3 cellSize = {
             (float)cellDimensions,
-            (float)cellDimensions / 2.f,
+            (float)cellDimensions / 4.f,
             (float)cellDimensions
     };
 
@@ -64,6 +65,7 @@ void WorldGenerate() {
         world.cells[i].texture = LoadTextureFromImage(cellImages[i]);
         world.cells[i].model.materials[0].maps[MAP_ALBEDO].texture = world.cells[i].texture;
         // TODO: Is this when this should be unloaded???
+        // NOTE: NOPE! Need to do it later
 //        UnloadMesh(mesh);
         UnloadImage(cellImages[i]);
     }

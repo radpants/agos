@@ -8,6 +8,7 @@
 typedef struct {
     int x, y, z, gx, gy;
     int neighbors[6];
+    uint8_t height;
 } Hex;
 
 Hex HexMake(int x, int y);

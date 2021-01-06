@@ -7,6 +7,11 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <assert.h>
+#include <memory.h>
+
 #include <raylib.h>
+#include <raymath.h>
 
 #endif //AGOS_PCH_H

@@ -11,6 +11,7 @@ Hex HexMake(int x, int y) {
     h.x = h.gx - (h.gy - (h.gy & 1)) / 2;
     h.z = h.gy;
     h.y = -h.x - h.z;
+    h.height = 0;
     return h;
 }
 
@@ -21,5 +22,6 @@ Hex HexMakeCube(int x, int y, int z) {
     h.z = z;
     h.gx = h.x + (h.z - (h.z & 1)) / 1;
     h.gy = h.z;
-    return h;
+	h.height = 0;
+	return h;
 }
