@@ -1,0 +1,6 @@
+--class-path src
+--library heaps
+--library hlsdl
+--main Main
+--debug
+--hl bin/agos-debug.hl
