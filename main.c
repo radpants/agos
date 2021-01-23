@@ -1,4 +1,7 @@
+#define DG_DYNARR_IMPLEMENTATION
 #include "pch.h"
+
+DA_TYPEDEF(int, IntArray);
 
 #include "ui.h"
 #include "world.h"
