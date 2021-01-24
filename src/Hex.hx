@@ -6,7 +6,8 @@ class Hex {
 	var z:Int;
 	var q:Int;
 	var r:Int; 
-	var neighbors:Array<Hex>;
+	public var neighbors:Array<Hex>;
+	public var province:Int = -1;
 
 	private static var NE = Hex.fromCube(1,-1,0);
 	private static var E = Hex.fromCube(1,0,-1);

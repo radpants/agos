@@ -1,37 +1,23 @@
-import h3d.shader.Parallax;
-import h3d.col.Plane;
-import h3d.col.Ray;
+import h2d.Object;
+import h2d.Graphics;
 import hxd.Window;
-import h3d.col.Point;
-import h2d.col.Point in Point2D;
-import h3d.prim.Polygon;
-import h3d.scene.Mesh;
+import h2d.col.Point;
 import hxd.res.DefaultFont;
 import h2d.Text;
-import h3d.Vector;
+import h3d.Engine; 
 
-class Main extends hxd.App {
-
+class Main extends hxd.App { 
 	var hexes:Array<Hex> = new Array<Hex>();
-	var isDraggingMap:Bool = false; 
-	var previousMousePos = new Point2D();
+	var isDraggingMap:Bool = false;
+	var previousMousePos = new Point();
 	var label:Text;
-
-	static private var GroundPlane = Plane.fromNormalPoint(new Point(0,0,1), new Point());
 
 	private function onEvent(event:hxd.Event):Void {
 		switch(event.kind) {
 			case EMove:
 				if(isDraggingMap) {
-					var ray = s3d.camera.rayFromScreen(event.relX, event.relY);
-					var rayP = s3d.camera.rayFromScreen(previousMousePos.x, previousMousePos.y);
-					var p = ray.intersect(GroundPlane);
-					var pp = rayP.intersect(GroundPlane);
-					if( p != null && pp != null ) {
-						s3d.camera.target = s3d.camera.target.add(new Vector(pp.x - p.x, pp.y - p.y, 0.0)); 
-						s3d.camera.pos = s3d.camera.pos.add(new Vector(pp.x - p.x, pp.y - p.y, 0.0)); 
-						s3d.camera.update(); 
-					}
+					s2d.camera.x += (previousMousePos.x - event.relX);
+					s2d.camera.y += (previousMousePos.y - event.relY);
 					previousMousePos.set(event.relX, event.relY);
 				}
 			case EPush:
@@ -42,12 +28,13 @@ class Main extends hxd.App {
 			case ERelease:
 				if(event.button == 0)
 					isDraggingMap = false;
+			case EKeyDown:
+
 			case _: 
 		} 
 	}
 
 	public override function update(dt:Float) { 
-		label.text = s3d.camera.target.toString();
 	}
 
 	public override function init() { 
@@ -68,6 +55,35 @@ class Main extends hxd.App {
 			h.findNeighbors(hexes, mapSize);
 		}
 
+		var provinceSpacing = 6; 
+		var provinceIndex = 0; 
+
+		for(y in 0...mapSize/provinceSpacing) {
+			for(x in 0...mapSize/provinceSpacing) { 
+				var hex = hexes[(y*provinceSpacing) * mapSize + (x*provinceSpacing)]; 
+				hex.province = provinceIndex;
+				provinceIndex++;
+			}
+		} 
+
+		var colors = []; 
+		for(i in 0...1024) { colors.push(Std.random(0xffffff)); }
+
+//		var unclaimedHexCount = hexes.length - provinceIndex;
+//		while(unclaimedHexCount > 0) {
+//			for(h in hexes) {
+//				if(h.province != -1) {
+//					for(n in h.neighbors) {
+//						if(n.province == -1) {
+//							n.province = h.province;
+//							unclaimedHexCount--;
+//							colors.push(Std.random(0xffffff));
+//						}
+//					}
+//				}
+//			}
+//		}
+
 		// -_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_
 		// Rendering
 
@@ -76,48 +92,30 @@ class Main extends hxd.App {
 		window.resize(1280, 720);
 		window.vsync = true;
 		window.addEventTarget(onEvent);
-		
+
 		label = new Text(DefaultFont.get(), s2d);
 		label.text = "Testing";
 		label.setPosition(32, 32); 
 
-		var hexSize = 0.25;
-		var offset = new Point(-hexSize * mapSize / 2, -hexSize * mapSize / 2, 0);
+		var hexSize = 15;
+		var offset = new Point(-hexSize * mapSize / 2, -hexSize * mapSize / 2);
 
-		var geo = new h3d.prim.Cylinder(6, hexSize, 0.1, true);
-		geo.addUVs();
-		geo.addNormals(); 
+		var map = new Object(s2d); 
 
 		for(h in hexes) {
 			var p = h.getPosition();
-			var mesh = new Mesh(geo, s3d);
-			mesh.material.color.setColor(0x4399ff);
-			mesh.material.mainPass.enableLights = true; 
-			mesh.setPosition(p.x * hexSize + offset.x, p.y * hexSize + offset.y, 0.2);
-			mesh.setRotation(0, 0, Math.PI / 6);
+			var gfx = new Graphics(map);
+			gfx.smooth = true;
+			gfx.lineStyle(1, 0x222222);
+			gfx.drawCircle(0, 0, hexSize, 6);
+			if(h.province != -1) {
+				gfx.beginFill(colors[h.province%colors.length]);
+				gfx.drawCircle(0, 0, hexSize-1, 6);
+				gfx.endFill();
+			}
+			gfx.setPosition(p.x * hexSize + offset.x, p.y * hexSize + offset.y);
+			gfx.rotation = Math.PI / 6;
 		} 
-
-		var idx = new hxd.IndexBuffer(6);
-		idx.push(0); idx.push(1); idx.push(2);
-		idx.push(2); idx.push(1); idx.push(3); 
-		var groundGeo = new Polygon([
-			new Point(-10.0, -10.0, 0.0),
-			new Point(10.0, -10.0, 0.0),
-			new Point(-10.0, 10.0, 0.0),
-			new Point(10.0, 10.0, 0.0)
-		], idx);
-		groundGeo.addNormals();
-
-		var ground = new Mesh(groundGeo, s3d); 
-		ground.material.color.setColor(0xcccccc);
-		ground.material.mainPass.enableLights = true;
-		ground.material.receiveShadows = true;
-		ground.material.castShadows = false;
-
-		var sun = new h3d.scene.fwd.DirLight(new h3d.Vector(0.5, 0.15, -0.5), s3d);
-		s3d.lightSystem.ambientLight.set(0.15, 0.2, 0.25); 
-
-		s3d.camera.pos.set(0.0, 20.0, 20.0); 
 	}
 
 	static function main() {
