@@ -13,10 +13,6 @@
 
 #include <raylib.h>
 #include <raymath.h>
-
-#include <rnd.h>
-
-#include <DG_dynarr.h>
-
+ 
 #endif //AGOS_PCH_H
 

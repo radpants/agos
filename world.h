@@ -6,19 +6,23 @@
 #define AGOS_WORLD_H
 
 #include "pch.h"
+#include "array.h"
 
-DA_TYPEDEF(size_t, IndexArray)
+#define TILE_FLAG_PROVINCE_SEED 1
 
 typedef struct {
 	uint16_t x, y;
-	uint32_t data;
+	uint16_t province; 
+	uint16_t flags;
+	uint16_t neighbors[6];
+	uint16_t shuffledNeighbors[6];
+	uint16_t distFromSeed;
+	float spindle;
+	Vector2 p;
 } WorldTile;
 
-DA_TYPEDEF(WorldTile, WorldTileArray)
-
-
 typedef struct {
-	IndexArray tileIndices;
+	Array tileIndices;
 	size_t regionIndex;
 	uint16_t feature;
 	uint16_t development;   // TODO: This needs to be its own system probably
@@ -27,37 +31,28 @@ typedef struct {
 	// TODO: Yields
 } WorldLocation;
 
-DA_TYPEDEF(WorldLocation, WorldLocationArray);
-
-
 typedef struct {
-	IndexArray locationIndices;
-	IndexArray neighborRegions;
+	Array locationIndices;
+	Array neighborRegions;
 	size_t areaIndex;
 	uint8_t biome;
 	Model terrainModel;
 } WorldRegion;
-
-DA_TYPEDEF(WorldRegion, WorldRegionArray);
-
 
 #define WORLD_AREA_CONTINENT 1
 #define WORLD_AREA_OCEAN 2
 
 typedef struct {
 	uint8_t type;
-	IndexArray regionIndices;
+	Array regionIndices;
 } WorldArea;
-
-DA_TYPEDEF(WorldArea, WorldAreaArray);
-
 
 typedef struct {
     unsigned int seed;
-    WorldTileArray tiles;
-    WorldLocationArray locations;
-    WorldRegionArray regions;
-    WorldAreaArray areas;
+    Array tiles;
+    Array locations;
+    Array regions;
+    Array areas;
 } World;
 
 

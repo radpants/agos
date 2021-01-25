@@ -6,6 +6,16 @@
 
 #define ARRAY_DEFAULT_CAPACITY 32
 
+Array ArrayMake(size_t elementSize) {
+	Array a = (Array){
+		.data = malloc(elementSize * ARRAY_DEFAULT_CAPACITY),
+		.elementSize = elementSize,
+		.count = 0  ,
+		.capacity = ARRAY_DEFAULT_CAPACITY
+	};
+	return a;
+}
+
 Array *ArrayNew(size_t elementSize) {
 	Array* array = (Array*)malloc(sizeof(Array));
 	array->data = malloc(elementSize * ARRAY_DEFAULT_CAPACITY);
@@ -23,12 +33,14 @@ void ArrayFree(Array *array) {
 void ArrayResize(Array *array, size_t newSize) {
 	assert(newSize >= array->count);
 	array->data = realloc(array->data, array->elementSize * newSize);
+	assert(array->data);
+	array->capacity = newSize;
 }
 
 void ArrayPush(Array *array, void *element) {
 	if(array->count == array->capacity) {
 		ArrayResize(array, array->capacity * 2); // TODO: This is a really silly way to guess at a new size
 	}
-	memcpy((void *)((uintptr_t) array->data + array->count * array->elementSize), element, array->elementSize);
+	memcpy((uintptr_t)array->data + array->count * array->elementSize, element, array->elementSize);
 	array->count++;
 }

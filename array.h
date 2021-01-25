@@ -10,6 +10,7 @@ typedef struct {
 	size_t capacity, count, elementSize;
 } Array;
 
+Array ArrayMake(size_t elementSize);
 Array* ArrayNew(size_t elementSize);
 void ArrayFree(Array* array);
 

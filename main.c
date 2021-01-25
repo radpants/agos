@@ -1,7 +1,7 @@
-#define DG_DYNARR_IMPLEMENTATION
 #include "pch.h"
 
-DA_TYPEDEF(int, IntArray);
+#define RND_IMPLEMENTATION
+#include <rnd.h>
 
 #include "ui.h"
 #include "world.h"
@@ -33,6 +33,13 @@ int main() {
 		.type = CAMERA_PERSPECTIVE
 	};
 
+	Camera2D cam2d = (Camera2D){
+		.offset = { 0.f, 0.f },
+		.target = { 0.f, 0.f },
+		.rotation = 0.f,
+		.zoom = 1.f
+	};
+
 	while(!WindowShouldClose()) {
 
 		if( IsMouseButtonDown(MOUSE_LEFT_BUTTON) ) {
@@ -45,9 +52,16 @@ int main() {
 				RayHitInfo pHit = GetCollisionRayGround(pRay, 0.f);
 				Vector3 move = Vector3Subtract(pHit.position, hit.position);
 				cam.target = Vector3Add(cam.target, move);
+
+				Vector2 move2d = Vector2Subtract(pMouse, mouse);
+				cam2d.target = Vector2Add(cam2d.target, move2d);
 			}
 
-			pMouse = mouse;
+			pMouse = mouse; 
+		}
+
+		if (IsKeyPressed(KEY_G)) {
+			WorldGenerate();
 		}
 		
 		float mouseWheel = GetMouseWheelMove() * 4.f;
@@ -62,10 +76,13 @@ int main() {
 		UpdateCamera(&cam);
 
 		BeginDrawing();
-		ClearBackground(RAYWHITE);
+		ClearBackground(BLACK);
+
+		BeginMode2D(cam2d);
+		WorldDraw(); 
+		EndMode2D();
 
 		BeginMode3D(cam);
-		WorldDraw();
 		EndMode3D();
 
 		UIDraw();
