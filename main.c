@@ -39,7 +39,7 @@ int main() {
 		.rotation = 0.f,
 		.zoom = 1.f
 	};
-
+	
 	while(!WindowShouldClose()) {
 
 		if( IsMouseButtonDown(MOUSE_LEFT_BUTTON) ) {

@@ -27,17 +27,19 @@
  */
 
 static World world = {0};
+static uint8_t IsWorldGenerated = 0;
 
-void WorldGenerate() { 
+void WorldGenerate() {
+	if(IsWorldGenerated)
+		return;
+	IsWorldGenerated = 1;
+	
 	const uint16_t WorldSize = 128;
 
 	// We'll need to not use uint16's if this is the case
 	assert(WorldSize < 256);
 
 	world.tiles = ArrayMake(sizeof(WorldTile));
-	world.locations = ArrayMake(sizeof(WorldLocation));
-	world.regions = ArrayMake(sizeof(WorldRegion));
-	world.areas = ArrayMake(sizeof(WorldArea)); 
 
 	ArrayResize(&world.tiles, WorldSize * WorldSize); 
 	
@@ -50,6 +52,7 @@ void WorldGenerate() {
 			tile.province = UINT16_MAX;
 			tile.distFromSeed = UINT16_MAX;
 			tile.spindle = 0.f;
+			tile.height = 0.f;
 			for (int n = 0; n < 6; ++n) { tile.neighbors[n] = UINT16_MAX; }
 			for (int n = 0; n < 6; ++n) { tile.shuffledNeighbors[n] = UINT16_MAX; }
 			ArrayPush(&world.tiles, &tile);
@@ -93,6 +96,7 @@ void WorldGenerate() {
 	}
  
 	static const ProvinceSpacing = 6;
+	static const float Frequency = 8.f;
 	uint16_t provinceIndex = 0;
 	int unclaimedTiles = world.tiles.count;
 	for (uint16_t y = ProvinceSpacing; y < WorldSize - ProvinceSpacing; y += ProvinceSpacing) { 
@@ -102,6 +106,14 @@ void WorldGenerate() {
 			tiles[idx].province = provinceIndex++;
 			tiles[idx].distFromSeed = 0;
 			tiles[idx].flags |= TILE_FLAG_PROVINCE_SEED;
+
+			Vector2 uv = (Vector2){ 
+				(float)x / (float)WorldSize * Frequency,
+				(float)y / (float)WorldSize * Frequency
+			};
+			tiles[idx].height = stb_perlin_noise3(uv.x, uv.y, 0.f, 0, 0, 0) + .5f;
+			tiles[idx].height = Clamp(tiles[idx].height, 0.f, 1.f);
+				 
 			unclaimedTiles--;
 		}
 	}
@@ -127,6 +139,7 @@ void WorldGenerate() {
 				if (ni != UINT16_MAX && tiles[ni].province == UINT16_MAX) { 
 					tiles[ni].province = tiles[i].province;
 					tiles[ni].distFromSeed = tiles[i].distFromSeed + 1;
+					tiles[ni].height = tiles[i].height;
 					counts[tiles[i].province]++;
 					unclaimedTiles--;
 				} 
@@ -134,7 +147,7 @@ void WorldGenerate() {
 		} 
 		++seedDist;
 	} 
-
+ 
 	for (uint16_t i = 0; i < world.tiles.count; ++i) {
 		for (int n = 0; n < 6; ++n) { 
 			if (tiles[i].neighbors[n] == UINT16_MAX)
@@ -150,14 +163,30 @@ void WorldGenerate() {
 	for (uint16_t i = 0; i < provinceIndex; ++i) { 
 		provinceSpindles[i] = (float)edgeCounts[i] / (float)counts[i];
 	} 
+	free(edgeCounts);
+	free(counts);
 
 	for (uint16_t i = 0; i < world.tiles.count; ++i) {
 		tiles[i].spindle = provinceSpindles[tiles[i].province];
 	}
 
-	free(counts);
-	free(edgeCounts);
 	free(provinceSpindles); 
+	
+
+	world.dataImage = GenImageColor(WorldSize, WorldSize, BLACK);
+
+	for(int y = 0; y < WorldSize; ++y) {
+		for(int x = 0; x < WorldSize; ++x) {
+			size_t i = y * WorldSize + x;
+			float hue = (1.f - (float)tiles[i].height) * 360.f;
+			float sat = tiles[i].height > 0.5f ? 1.f : .2f;
+			Color c = ColorFromHSV(hue, sat, .8f);
+			ImageDrawPixel(&world.dataImage, x, y, c);
+		}
+	}
+	
+	world.dataTexture = LoadTextureFromImage(world.dataImage);
+
 }
 
 void WorldDraw() { 
@@ -172,6 +201,7 @@ void WorldDraw() {
 	const Color cs[] = { YELLOW, RED, SKYBLUE, MAGENTA };
 	const Color lineCol = GetColor(0x222222ff);
 
+	char buf[32];
 	for (int i = 0; i < world.tiles.count; ++i) {
 		//int px = tiles[i].x * TileSize + ((tiles[i].y&1) * TileSize / 2);
 		//int py = tiles[i].y * TileSize; 
@@ -179,14 +209,40 @@ void WorldDraw() {
 		p.x = TileSize * Sqrt3 * ((float)tiles[i].x - .5f * (float)(tiles[i].y & 1));
 		p.y = TileSize * 3.f / 2.f * (float)tiles[i].y;
 		tiles[i].p = p;
-		DrawPolyLines(p, 6, TileSize, 0.f, lineCol); 
+
+		if (tiles[i].distFromSeed <= 5) {
+			Vector3 rgb = (Vector3){
+				(float)lineCol.r / 255.f,
+				(float)lineCol.g / 255.f,
+				(float)lineCol.b / 255.f,
+			};
+			rgb = Vector3Lerp(rgb, (Vector3) { 0 }, tiles[i].distFromSeed / 5.f);
+			Color lc = (Color){
+				rgb.x * 255.f,
+				rgb.y * 255.f,
+				rgb.z * 255.f,
+				255
+			};
+			DrawPolyLines(p, 6, TileSize, 0.f, lc); 
+		}
 
 		if (tiles[i].flags & TILE_FLAG_PROVINCE_SEED) {
-			DrawCircle(p.x, p.y, 4.f, GRAY);
+			float hue = (1.f - (float)tiles[i].height) * 360.f;
+			float sat = tiles[i].height > 0.5f ? 1.f : .2f;
+			Color c = ColorFromHSV(hue, sat, .8f);
+			DrawCircle(p.x, p.y, 4.f, c);
+
+			sprintf(&buf, "%.3f", tiles[i].height);
+			int w = MeasureText(buf, 10);
+			DrawText(buf, p.x - (w/2), p.y - 15, 10, c);
+
+			sprintf(&buf, "%.3f", tiles[i].spindle);
+			w = MeasureText(buf, 10);
+			DrawText(buf, p.x - (w/2), p.y - 25, 10, GRAY); 
 		}
-		else if (tiles[i].spindle >= 0.7f) {
-			DrawPoly(p, 3, 4.f, 60.f, DARKGRAY);
-		}
+		//else if (tiles[i].spindle >= 0.7f) {
+		//	DrawPoly(p, 3, 4.f, 60.f, DARKGRAY);
+		//}
 	}
 
 	for (int i = 0; i < world.tiles.count; ++i) { 
@@ -206,7 +262,19 @@ void WorldDraw() {
 				tiles[i].p.y + TileSize * sin(ts[n+1])
 			};
 
-			DrawLineEx(a, b, 2.f, RAYWHITE); 
+			Color bc = GRAY;
+
+			if ((tiles[i].height < .5f && tiles[tiles[i].neighbors[n]].height >= .5f) || (tiles[i].height >= .5f && tiles[tiles[i].neighbors[n]].height < .5f)) { 
+				bc = YELLOW;
+			}
+			else if (tiles[i].height < .5f) {
+				bc = DARKBLUE;
+			}
+
+			DrawLineEx(a, b, 2.f, bc); 
 		}
 	}
+	
+	//DrawTexture(world.dataTexture, 0, 0, WHITE);
+	DrawTextureEx(world.dataTexture, (Vector2) { 0 }, 0.f, 3.f, WHITE);
 }
