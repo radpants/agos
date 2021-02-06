@@ -1,1 +1,0 @@
-xcopy data cmake-build-debug\data /e /i /h /y
