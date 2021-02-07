@@ -1,0 +1,26 @@
+{
+  "name": "agos",
+  "version": "1.0.0",
+  "description": "A game",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/radpants/agos.git"
+  },
+  "keywords": ["game", "pixi", "webgl"],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/radpants/agos/issues"
+  },
+  "homepage": "https://github.com/radpants/agos#readme",
+  "devDependencies": {
+    "electron": "^11.2.3",
+    "gridlex": "^2.7.1",
+    "mithril": "^2.0.4",
+    "pixi.js": "^5.3.7"
+  }
+}
