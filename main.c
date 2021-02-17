@@ -1,7 +1,7 @@
 #include "pch.h"
 
 #define RND_IMPLEMENTATION
-#include <rnd.h>
+#include "vendor/rnd.h"
 
 #include "ui.h"
 #include "world.h"
@@ -57,7 +57,7 @@ int main() {
 				cam2d.target = Vector2Add(cam2d.target, move2d);
 			}
 
-			pMouse = mouse; 
+			pMouse = mouse;
 		}
 
 		if (IsKeyPressed(KEY_G)) {

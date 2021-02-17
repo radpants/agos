@@ -4,7 +4,7 @@
 
 #include "world.h"
 
-#include <rnd.h>
+#include "vendor/rnd.h"
 
 #include "vendor/raylib/src/external/stb_perlin.h"
 
@@ -28,13 +28,19 @@
 
 static World world = {0};
 static uint8_t IsWorldGenerated = 0;
+static Texture atlas = {0};
 
 void WorldGenerate() {
 	if(IsWorldGenerated)
 		return;
 	IsWorldGenerated = 1;
 	
-	const uint16_t WorldSize = 128;
+	rnd_pcg_t pcg;
+	rnd_pcg_seed(&pcg, 333);
+
+	atlas = LoadTexture("data/images/hex_tiles.png");
+
+	const uint16_t WorldSize = 255;
 
 	// We'll need to not use uint16's if this is the case
 	assert(WorldSize < 256);
@@ -53,6 +59,7 @@ void WorldGenerate() {
 			tile.distFromSeed = UINT16_MAX;
 			tile.spindle = 0.f;
 			tile.height = 0.f;
+			tile.seed = rnd_pcg_next(&pcg);
 			for (int n = 0; n < 6; ++n) { tile.neighbors[n] = UINT16_MAX; }
 			for (int n = 0; n < 6; ++n) { tile.shuffledNeighbors[n] = UINT16_MAX; }
 			ArrayPush(&world.tiles, &tile);
@@ -61,23 +68,20 @@ void WorldGenerate() {
 
 	WorldTile* tiles = (WorldTile*)world.tiles.data;
 
-	rnd_pcg_t pcg;
-	rnd_pcg_seed(&pcg, 1234);
-
 	for (uint16_t i = 0; i < world.tiles.count; ++i) {
-		if (tiles[i].y > 0) { 
+		if (tiles[i].y > 0) {
 			if(tiles[i].x + (tiles[i].y & 1) > 0)
-				tiles[i].neighbors[0] = i - WorldSize - (tiles[i].y & 1);			// NW
+				tiles[i].neighbors[0] = i - WorldSize - ((tiles[i].y+1) & 1);			// NW
 			if(tiles[i].x - (tiles[i].y & 1) < WorldSize)
-				tiles[i].neighbors[1] = i - WorldSize - (tiles[i].y & 1) + 1;		// NE
+				tiles[i].neighbors[1] = i - WorldSize - ((tiles[i].y+1) & 1) + 1;		// NE
 		}
 		if (tiles[i].x < WorldSize)
 			tiles[i].neighbors[2] = i + 1;		// E
 		if (tiles[i].y < WorldSize) {
 			if(tiles[i].x + (tiles[i].y & 1) > 0)
-				tiles[i].neighbors[3] = i + WorldSize - (tiles[i].y & 1);			// SW
+				tiles[i].neighbors[4] = i + WorldSize - ((tiles[i].y+1) & 1);			// SE
 			if(tiles[i].x - (tiles[i].y & 1) < WorldSize)
-				tiles[i].neighbors[4] = i + WorldSize - (tiles[i].y & 1) + 1;		// SE 
+				tiles[i].neighbors[3] = i + WorldSize - ((tiles[i].y+1) & 1) + 1;		// SW
 		}
 		if (tiles[i].x > 0)
 			tiles[i].neighbors[5] = i - 1;		// W
@@ -95,13 +99,14 @@ void WorldGenerate() {
 
 	}
  
-	static const ProvinceSpacing = 6;
-	static const float Frequency = 8.f;
+	static const int ProvinceSpacing = 8;
+	static const float Frequency = 4.f;
 	uint16_t provinceIndex = 0;
 	int unclaimedTiles = world.tiles.count;
-	for (uint16_t y = ProvinceSpacing; y < WorldSize - ProvinceSpacing; y += ProvinceSpacing) { 
-		for (uint16_t x = ProvinceSpacing; x < WorldSize - ProvinceSpacing; x += ProvinceSpacing) { 
-			uint16_t idx = tiles[y * WorldSize + x].shuffledNeighbors[0]; 
+	for (uint16_t y = ProvinceSpacing/2; y < WorldSize - ProvinceSpacing/2; y += ProvinceSpacing) { 
+		for (uint16_t x = ProvinceSpacing/2; x < WorldSize - ProvinceSpacing/2; x += ProvinceSpacing) { 
+			uint16_t idx = tiles[y * WorldSize + x].shuffledNeighbors[0];
+			idx = tiles[idx].shuffledNeighbors[0];
 			idx = tiles[idx].shuffledNeighbors[0];
 			tiles[idx].province = provinceIndex++;
 			tiles[idx].distFromSeed = 0;
@@ -139,7 +144,7 @@ void WorldGenerate() {
 				if (ni != UINT16_MAX && tiles[ni].province == UINT16_MAX) { 
 					tiles[ni].province = tiles[i].province;
 					tiles[ni].distFromSeed = tiles[i].distFromSeed + 1;
-					tiles[ni].height = tiles[i].height;
+					tiles[ni].height = tiles[i].height; 
 					counts[tiles[i].province]++;
 					unclaimedTiles--;
 				} 
@@ -147,6 +152,13 @@ void WorldGenerate() {
 		} 
 		++seedDist;
 	} 
+
+	for (uint16_t i = 0; i < world.tiles.count; ++i) {
+		if(tiles[i].height >= .5f)
+			tiles[i].flags |= TILE_FLAG_LAND;
+		if(tiles[i].height >= .9f)
+			tiles[i].flags |= TILE_FLAG_MOUNTAIN;
+	}
  
 	for (uint16_t i = 0; i < world.tiles.count; ++i) {
 		for (int n = 0; n < 6; ++n) { 
@@ -171,6 +183,64 @@ void WorldGenerate() {
 	}
 
 	free(provinceSpindles); 
+
+	for (int i = 0; i < world.tiles.count; ++i) {
+		for (int n = 0; n < 6; ++n) {
+			if (tiles[i].neighbors[n] == UINT16_MAX)
+				continue;
+			if (tiles[i].flags & TILE_FLAG_LAND && (tiles[tiles[i].neighbors[n]].flags & TILE_FLAG_LAND) == 0) {
+				tiles[i].flags |= TILE_FLAG_COASTAL;
+				continue;
+			}
+			if (tiles[tiles[i].neighbors[n]].flags & TILE_FLAG_LAND && (tiles[i].flags & TILE_FLAG_LAND) == 0) {
+				tiles[i].flags |= TILE_FLAG_COASTAL;
+				continue;
+			}
+		}
+	}
+
+	int riversToAdd = world.tiles.count / 1000;
+	int totalRivers = 0;
+	size_t* startIndices = (size_t*)malloc(sizeof(size_t)*riversToAdd);
+	size_t start_i = 0;
+	while(riversToAdd > 0) {
+		int i = rnd_pcg_next(&pcg) % world.tiles.count;
+		if(tiles[i].flags & TILE_FLAG_MOUNTAIN) { 
+			startIndices[start_i++] = i;
+			riversToAdd--;
+			totalRivers++;
+		}
+	}
+
+	for(int i = 0; i < totalRivers; i++) {
+		tiles[startIndices[i]].flags |= TILE_FLAG_RIVER;
+		tiles[startIndices[i]].riverId = i;
+		WorldTile* next = &tiles[startIndices[i]];
+		int dir = rnd_pcg_next(&pcg) % 6;
+		int changeDir = rnd_pcg_next(&pcg) % 5;
+		while(next && (next->flags & TILE_FLAG_LAND)) {
+			if(changeDir-- <= 0) {
+				dir += (rnd_pcg_next(&pcg) % 2) ? -1 : 1;
+				dir = dir % 6;
+				changeDir = rnd_pcg_next(&pcg) % 6;
+			}
+			next->flags |= TILE_FLAG_RIVER;
+			next->riverId = i;
+			if( next->neighbors[dir] != UINT16_MAX ) {
+				WorldTile* prev = next;
+				next = &tiles[next->neighbors[dir]];
+				if(next->flags & TILE_FLAG_RIVER && next->riverId != i) {
+					next->flags |= TILE_FLAG_TRIBUTARY;
+					prev->flags |= TILE_FLAG_TRIBUTARY;
+					break;
+				}
+			}
+			else
+				changeDir = 0;
+		}
+	}
+
+	free(startIndices);
 	
 
 	world.dataImage = GenImageColor(WorldSize, WorldSize, BLACK);
@@ -185,96 +255,120 @@ void WorldGenerate() {
 		}
 	}
 	
-	world.dataTexture = LoadTextureFromImage(world.dataImage);
-
+	world.dataTexture = LoadTextureFromImage(world.dataImage); 
 }
 
-void WorldDraw() { 
+void WorldDraw() {
+	if(!IsWorldGenerated) 
+		return;
+
 	WorldTile* tiles = (WorldTile*)world.tiles.data;
-	static const float TileSize = 15.f;
-	static const float Sqrt3 = 1.73205f;
-	static const float t1 = -(3.14159f / 3.f) * 2.5f;
-	static const float t2 = -(3.14159f / 3.f) * 1.5f;
-	static const float t3 = -(3.14159f / 3.f) * 0.5f;
-	static const float t4 = (3.14159f / 3.f) * 0.5f;
-	const float ts[] = { t1, t2, t3, t4 };
-	const Color cs[] = { YELLOW, RED, SKYBLUE, MAGENTA };
-	const Color lineCol = GetColor(0x222222ff);
+
+	static const Rectangle src = { 0, 0, 32, 27 };
+	static const Rectangle poi_src = { 495, 28, 32, 27 };
+	static const Rectangle edge_src[] = {
+		(Rectangle){ 33, 252, 16, 9 },
+		(Rectangle){ 49, 252, 16, 9 },
+		(Rectangle){ 64, 259, 1, 12 },
+		(Rectangle){ 49, 270, 16, 9 },
+		(Rectangle){ 33, 270, 16, 9 },
+		(Rectangle){ 33, 259, 1, 12 }
+	};
 
 	char buf[32];
 	for (int i = 0; i < world.tiles.count; ++i) {
-		//int px = tiles[i].x * TileSize + ((tiles[i].y&1) * TileSize / 2);
-		//int py = tiles[i].y * TileSize; 
-		Vector2 p = { 0 };
-		p.x = TileSize * Sqrt3 * ((float)tiles[i].x - .5f * (float)(tiles[i].y & 1));
-		p.y = TileSize * 3.f / 2.f * (float)tiles[i].y;
-		tiles[i].p = p;
 
-		if (tiles[i].distFromSeed <= 5) {
-			Vector3 rgb = (Vector3){
-				(float)lineCol.r / 255.f,
-				(float)lineCol.g / 255.f,
-				(float)lineCol.b / 255.f,
-			};
-			rgb = Vector3Lerp(rgb, (Vector3) { 0 }, tiles[i].distFromSeed / 5.f);
-			Color lc = (Color){
-				rgb.x * 255.f,
-				rgb.y * 255.f,
-				rgb.z * 255.f,
-				255
-			};
-			DrawPolyLines(p, 6, TileSize, 0.f, lc); 
+		tiles[i].p = (Vector2){
+			.x = tiles[i].x * 32 + ((tiles[i].y&1) * 16),
+			.y = tiles[i].y * 19,
+		};
+
+
+		if( tiles[i].flags & TILE_FLAG_LAND ) {
+			Rectangle tile_src = src;
+
+			if (tiles[i].flags & TILE_FLAG_PROVINCE_SEED) {
+				float hue = (1.f - (float)tiles[i].height) * 360.f;
+				float sat = tiles[i].height > 0.5f ? 1.f : .2f;
+				Color c = ColorFromHSV(hue, sat, .8f);
+				DrawTextureRec(atlas, poi_src, tiles[i].p, WHITE);
+
+				sprintf((char * restrict)&buf, "%.3f", tiles[i].height);
+				int w = MeasureText(buf, 10);
+				DrawText(buf, tiles[i].p.x - (w/2) + 16, tiles[i].p.y - 15, 10, c);
+
+				sprintf((char * restrict)&buf, "%.3f", tiles[i].spindle);
+				w = MeasureText(buf, 10);
+				DrawText(buf, tiles[i].p.x - (w/2) + 16, tiles[i].p.y - 25, 10, GRAY); 
+			}
+			else if(tiles[i].flags & TILE_FLAG_RIVER) { 
+				uint8_t sig = 0;
+				for(int n = 0; n < 6; n++) {
+					if(tiles[i].neighbors[n] == UINT16_MAX)
+						continue;
+					if(tiles[tiles[i].neighbors[n]].flags & TILE_FLAG_RIVER) {
+						if(tiles[tiles[i].neighbors[n]].riverId == tiles[i].riverId || tiles[i].flags & TILE_FLAG_TRIBUTARY) {
+							sig |= (1 << n);
+						}
+					}
+				}
+				if(sig > 0) {
+					int sx = 33 + ((sig-1) * 33);
+					int sy = 84;
+					if(sx >= 2048 - 33) {
+						sx -= 2048;
+						sy += 28;
+					}
+					Rectangle river_src = { sx, sy, 32, 27 };
+					DrawTextureRec(atlas, river_src, tiles[i].p, WHITE);
+					sprintf((char * restrict)&buf, "%d", tiles[i].riverId);
+					DrawText(buf, tiles[i].p.x + 10, tiles[i].p.y + 8, 10, WHITE);
+				}
+			}
+			else if(tiles[i].flags & TILE_FLAG_COASTAL) {
+				uint8_t sig = 0;
+				for(int n = 0; n < 6; n++) {
+					if(tiles[i].neighbors[n] == UINT16_MAX)
+						continue;
+					if((tiles[tiles[i].neighbors[n]].flags & TILE_FLAG_LAND) == 0) {
+						sig |= (1 << n);
+					}
+				}
+				if(sig > 0) {
+					int sx = 66 + ((sig-1) * 33);
+					int sy = 112;
+					if(sx >= 2048 - 32) {
+						sx -= 2048;
+						sy += 28;
+					}
+					Rectangle coast_src = { sx, sy, 32, 27 };
+					DrawTextureRec(atlas, coast_src, tiles[i].p, WHITE);
+				} 
+			}
+			else {
+				if(tiles[i].flags & TILE_FLAG_MOUNTAIN)
+					tile_src.x = 330 + 33 * (tiles[i].seed % 6);
+				else
+					tile_src.x = 33 * (tiles[i].seed % 10);
+
+				DrawTextureRec(atlas, tile_src, tiles[i].p, WHITE); 
+			}
 		}
-
-		if (tiles[i].flags & TILE_FLAG_PROVINCE_SEED) {
-			float hue = (1.f - (float)tiles[i].height) * 360.f;
-			float sat = tiles[i].height > 0.5f ? 1.f : .2f;
-			Color c = ColorFromHSV(hue, sat, .8f);
-			DrawCircle(p.x, p.y, 4.f, c);
-
-			sprintf(&buf, "%.3f", tiles[i].height);
-			int w = MeasureText(buf, 10);
-			DrawText(buf, p.x - (w/2), p.y - 15, 10, c);
-
-			sprintf(&buf, "%.3f", tiles[i].spindle);
-			w = MeasureText(buf, 10);
-			DrawText(buf, p.x - (w/2), p.y - 25, 10, GRAY); 
-		}
-		//else if (tiles[i].spindle >= 0.7f) {
-		//	DrawPoly(p, 3, 4.f, 60.f, DARKGRAY);
-		//}
 	}
 
-	for (int i = 0; i < world.tiles.count; ++i) { 
+	Color ecol = GetColor(0xffffff33);
+	for (int i = 0; i < world.tiles.count; ++i) {
 		for (int n = 0; n < 3; ++n) {
 			if (tiles[i].neighbors[n] == UINT16_MAX)
+				continue;
+			if (tiles[i].flags & TILE_FLAG_COASTAL)
 				continue;
 			if (tiles[tiles[i].neighbors[n]].province == tiles[i].province)
 				continue;
 
-			Vector2 a = {
-				tiles[i].p.x + TileSize * cos(ts[n]),
-				tiles[i].p.y + TileSize * sin(ts[n])
-			};
-
-			Vector2 b = {
-				tiles[i].p.x + TileSize * cos(ts[n+1]),
-				tiles[i].p.y + TileSize * sin(ts[n+1])
-			};
-
-			Color bc = GRAY;
-
-			if ((tiles[i].height < .5f && tiles[tiles[i].neighbors[n]].height >= .5f) || (tiles[i].height >= .5f && tiles[tiles[i].neighbors[n]].height < .5f)) { 
-				bc = YELLOW;
-			}
-			else if (tiles[i].height < .5f) {
-				bc = DARKBLUE;
-			}
-
-			DrawLineEx(a, b, 2.f, bc); 
+			DrawTextureRec(atlas, edge_src[n], (Vector2){ tiles[i].p.x + (edge_src[n].x - 33), tiles[i].p.y + (edge_src[n].y - 252) }, ecol);
 		}
-	}
+	} 
 	
-	//DrawTexture(world.dataTexture, 0, 0, WHITE);
-	DrawTextureEx(world.dataTexture, (Vector2) { 0 }, 0.f, 3.f, WHITE);
+	//DrawTextureEx(world.dataTexture, (Vector2) { 0 }, 0.f, 3.f, WHITE);
 }

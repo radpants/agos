@@ -29,3 +29,5 @@ include_directories(vendor/)
 add_executable(agos main.c ui.c ui.h world.c world.h hex.c hex.h pch.h array.c array.h)
 target_precompile_headers(agos PRIVATE pch.h)
 target_link_libraries(agos PRIVATE raylib)
+
+file(COPY data DESTINATION .)
