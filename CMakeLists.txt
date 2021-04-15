@@ -8,8 +8,6 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_GAMES OFF CACHE BOOL "" FORCE)
 add_subdirectory(vendor/raylib)
 
-set(CMAKE_C_FLAGS -Wall)
-
 if(WIN32)
     set(CMAKE_C_FLAGS "/EHsc /W4")
     # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /O2 /Oi /Ot")
@@ -20,6 +18,8 @@ if(WIN32)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4255") # allow void func() instead of void func(void)
     set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /SUBSYSTEM:WINDOWS")
     set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /SUBSYSTEM:CONSOLE")
+else()
+    set(CMAKE_C_FLAGS -Wall)
 endif()
 
 

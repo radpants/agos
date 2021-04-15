@@ -40,7 +40,7 @@ void WorldGenerate() {
 
 	atlas = LoadTexture("data/images/hex_tiles.png");
 
-	const uint16_t WorldSize = 255;
+	const uint16_t WorldSize = 128;
 
 	// We'll need to not use uint16's if this is the case
 	assert(WorldSize < 256);
@@ -72,15 +72,15 @@ void WorldGenerate() {
 		if (tiles[i].y > 0) {
 			if(tiles[i].x + (tiles[i].y & 1) > 0)
 				tiles[i].neighbors[0] = i - WorldSize - ((tiles[i].y+1) & 1);			// NW
-			if(tiles[i].x - (tiles[i].y & 1) < WorldSize)
+			if(tiles[i].x - (tiles[i].y & 1) < WorldSize - 1)
 				tiles[i].neighbors[1] = i - WorldSize - ((tiles[i].y+1) & 1) + 1;		// NE
 		}
-		if (tiles[i].x < WorldSize)
+		if (tiles[i].x < WorldSize - 1)
 			tiles[i].neighbors[2] = i + 1;		// E
-		if (tiles[i].y < WorldSize) {
+		if (tiles[i].y < WorldSize - 1) {
 			if(tiles[i].x + (tiles[i].y & 1) > 0)
 				tiles[i].neighbors[4] = i + WorldSize - ((tiles[i].y+1) & 1);			// SE
-			if(tiles[i].x - (tiles[i].y & 1) < WorldSize)
+			if(tiles[i].x - (tiles[i].y & 1) < WorldSize - 1)
 				tiles[i].neighbors[3] = i + WorldSize - ((tiles[i].y+1) & 1) + 1;		// SW
 		}
 		if (tiles[i].x > 0)
@@ -266,13 +266,13 @@ void WorldDraw() {
 
 	static const Rectangle src = { 0, 0, 32, 27 };
 	static const Rectangle poi_src = { 495, 28, 32, 27 };
-	static const Rectangle edge_src[] = {
-		(Rectangle){ 33, 252, 16, 9 },
-		(Rectangle){ 49, 252, 16, 9 },
-		(Rectangle){ 64, 259, 1, 12 },
-		(Rectangle){ 49, 270, 16, 9 },
-		(Rectangle){ 33, 270, 16, 9 },
-		(Rectangle){ 33, 259, 1, 12 }
+	static Rectangle edge_src[] = {
+		{ 33, 252, 16, 9 },
+		{ 49, 252, 16, 9 },
+		{ 64, 259, 1, 12 },
+		{ 49, 270, 16, 9 },
+		{ 33, 270, 16, 9 },
+		{ 33, 259, 1, 12 }
 	};
 
 	char buf[32];
