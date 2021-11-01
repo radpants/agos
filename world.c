@@ -199,7 +199,7 @@ void WorldGenerate() {
 		}
 	}
 
-	int riversToAdd = world.tiles.count / 1000;
+	int riversToAdd = world.tiles.count / 500;
 	int totalRivers = 0;
 	size_t* startIndices = (size_t*)malloc(sizeof(size_t)*riversToAdd);
 	size_t start_i = 0;

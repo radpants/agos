@@ -11,8 +11,8 @@ void HandleGenerate() {
 }
 
 int main() {
-	InitWindow(1920, 1080, "Agos");
-	SetTargetFPS(60);
+	InitWindow(1280, 720, "Agos");
+	SetTargetFPS(144);
 
 	UISetClickGenerateCallback(&HandleGenerate);
 
